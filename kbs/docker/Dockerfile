@@ -1,5 +1,4 @@
 FROM rust:slim as builder
-ARG ARCH=x86_64
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -10,10 +9,10 @@ RUN apt-get update && \
     gnupg-agent \
     git
 
-RUN if [ "${ARCH}" = "x86_64" ]; then curl -fsSL https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | \
+RUN curl -fsSL https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | \
     gpg --dearmor --output /usr/share/keyrings/intel-sgx.gpg && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-sgx.gpg] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | \
-    tee /etc/apt/sources.list.d/intel-sgx.list; fi && \
+    tee /etc/apt/sources.list.d/intel-sgx.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     libclang-dev \
@@ -30,10 +29,8 @@ RUN if [ "${ARCH}" = "x86_64" ]; then curl -fsSL https://download.01.org/intel-s
     libsgx-dcap-quote-verify-dev \
     libtdx-attest-dev
 
-RUN [ "${ARCH}" = "x86_64" ] && GOARCH="amd64" || GOARCH="${ARCH}" && \
-wget https://go.dev/dl/go1.20.1.linux-${GOARCH}.tar.gz && \
-tar -C /usr/local -xzf go1.20.1.linux-${GOARCH}.tar.gz
-
+RUN wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz
+RUN tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Build and Install KBS
@@ -52,13 +49,14 @@ RUN apt-get update && \
     gnupg-agent
 
 # Install TDX Runtime Dependencies
-RUN if [ "${ARCH}" = "x86_64" ]; then curl -fsSL https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | \
-    gpg --dearmor --output /usr/share/keyrings/intel-sgx.gpg && \
-    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-sgx.gpg] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' | tee /etc/apt/sources.list.d/intel-sgx.list && \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN curl -fsSL https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | \
+    gpg --dearmor --output /usr/share/keyrings/intel-sgx.gpg
+RUN echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-sgx.gpg] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' | tee /etc/apt/sources.list.d/intel-sgx.list
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
     libsgx-dcap-default-qpl \
     libsgx-dcap-quote-verify \
-    tpm2-tools; fi
+    tpm2-tools
 
 # Intel PCCS URL Configurations
 # If you want the AS in KBS to connect to your customized PCCS for Intel TDX/SGX evidence verification,
@@ -68,7 +66,7 @@ ENV INTEL_PCCS_URL "https://localhost:8081/sgx/certification/v4/"
 ENV INTEL_PCCS_USE_SECURE_CERT false
 
 # Setup Intel PCCS URL
-RUN if [ -f /etc/sgx_default_qcnl.conf ]; then sed -i "s|\"pccs_url\":.*$|\"pccs_url\":$INTEL_PCCS_URL,|" /etc/sgx_default_qcnl.conf; fi && \
-    if [ -f /etc/sgx_default_qcnl.conf ]; then sed -i "s/\"use_secure_cert\":.*$/\"use_secure_cert\":$INTEL_PCCS_USE_SECURE_CERT,/" /etc/sgx_default_qcnl.conf; fi
+RUN sed -i "s|\"pccs_url\":.*$|\"pccs_url\":$INTEL_PCCS_URL,|" /etc/sgx_default_qcnl.conf; \
+    sed -i "s/\"use_secure_cert\":.*$/\"use_secure_cert\":$INTEL_PCCS_USE_SECURE_CERT,/" /etc/sgx_default_qcnl.conf
 
 COPY --from=builder /usr/local/cargo/bin/kbs /usr/local/bin/kbs

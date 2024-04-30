@@ -12,10 +12,17 @@ jobs:
     strategy:
       matrix:
         instance:
+          - ubuntu-latest
           - s390x-test
     runs-on: ${{ matrix.instance }}
 
     steps:
+    - name: Take a pre-action for self-hosted runner
+      run: |
+        if [ -f ${HOME}/script/pre_action.sh ]; then
+          ${HOME}/script/pre_action.sh cc-trustee
+        fi
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -32,17 +39,52 @@ jobs:
     - name: Build Container Image KBS (built-in AS)
       run: |
         commit_sha=${{ github.sha }}
-        arch=$(uname -m)
         DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile --push \
-          -t ghcr.io/bbolroc/staged-images/kbs:${commit_sha}-${arch} \
-          -t ghcr.io/bbolroc/staged-images/kbs:latest-${arch} \
-          --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa --build-arg ARCH=${arch} .
+          -t ghcr.io/bbolroc/staged-images/kbs:${commit_sha} \
+          -t ghcr.io/bbolroc/staged-images/kbs:latest \
+          --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa .
+      if: ${{ matrix.instance == 'ubuntu-latest' }}
 
     - name: Build Container Image KBS (gRPC AS)
       run: |
         commit_sha=${{ github.sha }}
         arch=$(uname -m)
+        if [ "${arch}" == "s390x" ]; then https_crypto=openssl; else https_crypto=rustls; fi
         DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile.coco-as-grpc --push \
           -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-${arch} \
           -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-${arch} \
-          --build-arg ARCH=${arch} .
+          --build-arg ARCH=${arch} --build-arg HTTPS_CRYPTO=${https_crypto} .
+
+    - name: Take a post-action for self-hosted runner
+      if: always()
+      run: |
+        if [ -f ${HOME}/script/post_action.sh ]; then
+          ${HOME}/script/post_action.sh cc-trustee
+        fi
+
+  publish_multi_arch_image:
+    needs: build_and_push
+    permissions:
+      packages: write
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Login to GHCR Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Publish Multi-Arch KBS image (gRPC AS)
+      run: |
+        commit_sha=${{ github.sha }}
+        docker manifest create ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha} \
+          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-x86_64 \
+          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-s390x
+        docker manifest push ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}
+        docker manifest create ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest \
+          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-x86_64 \
+          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-s390x
+        docker manifest push ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest
+
