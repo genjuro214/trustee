@@ -7,7 +7,14 @@ on:
 
 jobs:
   build_and_push:
-    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        instance:
+          - ubuntu-latest
+          - s390x
+    runs-on: ${{ matrix.instance }}
 
     steps:
     - name: Checkout code
@@ -26,9 +33,17 @@ jobs:
     - name: Build Container Image KBS (built-in AS)
       run: |
         commit_sha=${{ github.sha }}
-        DOCKER_BUILDKIT=1 docker build -t ghcr.io/confidential-containers/staged-images/kbs:${commit_sha} -t ghcr.io/confidential-containers/staged-images/kbs:latest --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa . -f kbs/docker/Dockerfile --push
+        arch=$(uname -m)
+        DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile --push \
+          -t ghcr.io/confidential-containers/staged-images/kbs:${commit_sha}-${arch} \
+          -t ghcr.io/confidential-containers/staged-images/kbs:latest-${arch} \
+          --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa --build-arg ARCH=${arch} .
 
     - name: Build Container Image KBS (gRPC AS)
       run: |
         commit_sha=${{ github.sha }}
-        DOCKER_BUILDKIT=1 docker build -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:${commit_sha} -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:latest . -f kbs/docker/Dockerfile.coco-as-grpc --push
+        arch=$(uname -m)
+        DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile.coco-as-grpc --push \
+          -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:${commit_sha}-${arch} \
+          -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:latest-${arch} \
+          --build-arg ARCH=${arch} .
