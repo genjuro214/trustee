@@ -3,7 +3,7 @@ name: Build and Push kbs Image
 on:
   push:
     branches:
-      - main
+      - enable-s390x-kbs-images
 
 jobs:
   build_and_push:
@@ -12,8 +12,7 @@ jobs:
     strategy:
       matrix:
         instance:
-          - ubuntu-latest
-          - s390x
+          - s390x-test
     runs-on: ${{ matrix.instance }}
 
     steps:
@@ -35,8 +34,8 @@ jobs:
         commit_sha=${{ github.sha }}
         arch=$(uname -m)
         DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile --push \
-          -t ghcr.io/confidential-containers/staged-images/kbs:${commit_sha}-${arch} \
-          -t ghcr.io/confidential-containers/staged-images/kbs:latest-${arch} \
+          -t ghcr.io/bbolroc/staged-images/kbs:${commit_sha}-${arch} \
+          -t ghcr.io/bbolroc/staged-images/kbs:latest-${arch} \
           --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa --build-arg ARCH=${arch} .
 
     - name: Build Container Image KBS (gRPC AS)
@@ -44,6 +43,6 @@ jobs:
         commit_sha=${{ github.sha }}
         arch=$(uname -m)
         DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile.coco-as-grpc --push \
-          -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:${commit_sha}-${arch} \
-          -t ghcr.io/confidential-containers/staged-images/kbs-grpc-as:latest-${arch} \
+          -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-${arch} \
+          -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-${arch} \
           --build-arg ARCH=${arch} .
