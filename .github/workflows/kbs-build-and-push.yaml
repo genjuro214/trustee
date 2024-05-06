@@ -14,6 +14,18 @@ jobs:
         instance:
           - ubuntu-latest
           - s390x-test
+        tag:
+          - kbs
+          - kbs-grpc-as
+        include:
+          - tag: kbs
+            docker_file: kbs/docker/Dockerfile
+            https_crypto: openssl
+            name: build-in AS
+          - tag: kbs-grpc-as
+            docker_file: kbs/docker/Dockerfile.coco-as-grpc
+            https_crypto: rustls
+            name: gRPC AS
     runs-on: ${{ matrix.instance }}
 
     steps:
@@ -36,23 +48,15 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Container Image KBS (built-in AS)
-      run: |
-        commit_sha=${{ github.sha }}
-        DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile --push \
-          -t ghcr.io/bbolroc/staged-images/kbs:${commit_sha} \
-          -t ghcr.io/bbolroc/staged-images/kbs:latest \
-          --build-arg KBS_FEATURES=coco-as-builtin,openssl,resource,opa .
-      if: ${{ matrix.instance == 'ubuntu-latest' }}
-
-    - name: Build Container Image KBS (gRPC AS)
+    - name: Build Container Image KBS (${{ matrix.name }})
       run: |
         commit_sha=${{ github.sha }}
         arch=$(uname -m)
-        if [ "${arch}" == "s390x" ]; then https_crypto=openssl; else https_crypto=rustls; fi
-        DOCKER_BUILDKIT=1 docker build -f kbs/docker/Dockerfile.coco-as-grpc --push \
-          -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-${arch} \
-          -t ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-${arch} \
+        https_crypto=${{ matrix.https_crypto }}
+        [ "${arch}" = "s390x" ] && https_crypto=openssl
+        DOCKER_BUILDKIT=1 docker build -f ${{ matrix.docker_file }} --push \
+          -t ghcr.io/bbolroc/staged-images/${{ matrix.tag }}:${commit_sha}-${arch} \
+          -t ghcr.io/bbolroc/staged-images/${{ matrix.tag }}:latest-${arch} \
           --build-arg ARCH=${arch} --build-arg HTTPS_CRYPTO=${https_crypto} .
 
     - name: Take a post-action for self-hosted runner
@@ -64,6 +68,11 @@ jobs:
 
   publish_multi_arch_image:
     needs: build_and_push
+    strategy:
+      matrix:
+        image:
+          - kbs
+          - kbs-grpc-as
     permissions:
       packages: write
     runs-on: ubuntu-latest
@@ -76,15 +85,15 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Publish Multi-Arch KBS image (gRPC AS)
+    - name: Publish Multi-Arch ${{ matrix.image }} image
       run: |
         commit_sha=${{ github.sha }}
-        docker manifest create ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha} \
-          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-x86_64 \
-          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}-s390x
-        docker manifest push ghcr.io/bbolroc/staged-images/kbs-grpc-as:${commit_sha}
-        docker manifest create ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest \
-          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-x86_64 \
-          --amend ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest-s390x
-        docker manifest push ghcr.io/bbolroc/staged-images/kbs-grpc-as:latest
+        docker manifest create ghcr.io/bbolroc/staged-images/${{ matrix.image }}:${commit_sha} \
+          --amend ghcr.io/bbolroc/staged-images/${{ matrix.image }}:${commit_sha}-x86_64 \
+          --amend ghcr.io/bbolroc/staged-images/${{ matrix.image }}:${commit_sha}-s390x
+        docker manifest push ghcr.io/bbolroc/staged-images/${{ matrix.image }}:${commit_sha}
+        docker manifest create ghcr.io/bbolroc/staged-images/${{ matrix.image }}:latest \
+          --amend ghcr.io/bbolroc/staged-images/${{ matrix.image }}:latest-x86_64 \
+          --amend ghcr.io/bbolroc/staged-images/${{ matrix.image }}:latest-s390x
+        docker manifest push ghcr.io/bbolroc/staged-images/${{ matrix.image }}:latest
 
