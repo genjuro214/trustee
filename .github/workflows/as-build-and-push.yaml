@@ -3,7 +3,7 @@ name: Build and Push CoCoAS / RVPS Image
 on:
   push:
     branches:
-      - enable-s390x-kbs-images
+      - main
 
 jobs:
   build_and_push:

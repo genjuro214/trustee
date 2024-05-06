@@ -3,7 +3,7 @@ name: Build and Push kbs Image
 on:
   push:
     branches:
-      - main
+      - enable-s390x-kbs-images
 
 jobs:
   build_and_push:
