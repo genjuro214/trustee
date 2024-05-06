@@ -2,6 +2,8 @@ AS_TYPE ?= coco-as
 HTTPS_CRYPTO ?= rustls
 POLICY_ENGINE ?=
 
+ARCH := $(shell uname -m)
+
 CLI_FEATURES ?= default
 
 COCO_AS_INTEGRATION_TYPE ?= builtin
@@ -34,12 +36,12 @@ passport-resource-kbs:
 cli:
 	cargo build -p kbs-client --locked --release --no-default-features --features $(CLI_FEATURES)
 
-.PHONY: cli-static-x86_64-linux
-cli-static-x86_64-linux:
+.PHONY: cli-static-linux
+cli-static-linux:
 	cargo build \
       -p kbs-client \
-      --target=x86_64-unknown-linux-gnu \
-      --config "target.x86_64-unknown-linux-gnu.rustflags = '-C target-feature=+crt-static'" \
+      --target=$(ARCH)-unknown-linux-gnu \
+      --config "target.$(ARCH)-unknown-linux-gnu.rustflags = '-C target-feature=+crt-static'" \
       --locked \
       --release \
       --no-default-features \
