@@ -32,7 +32,7 @@ RUN if [ "${ARCH}" = "x86_64" ]; then curl -fsSL https://download.01.org/intel-s
     libsgx-dcap-quote-verify-dev \
     libtdx-attest-dev; fi
 
-RUN [ "${ARCH}" = "x86_64" ] && GOARCH="amd64" || GOARCH="${ARCH}" && \
+RUN if [ "${ARCH}" = "x86_64" ]; then GOARCH="amd64"; else GOARCH="${ARCH}"; fi && \
     wget https://go.dev/dl/go1.20.1.linux-${GOARCH}.tar.gz && \
     tar -C /usr/local -xzf go1.20.1.linux-${GOARCH}.tar.gz
 ENV PATH="/usr/local/go/bin:${PATH}"

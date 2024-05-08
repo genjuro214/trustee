@@ -4,6 +4,11 @@ POLICY_ENGINE ?=
 
 ARCH := $(shell uname -m)
 
+# Check if ARCH is supported, otehrwise return error
+ifeq ($(filter $(ARCH),x86_64 s390x),)
+	$(error "Unsupported architecture: $(ARCH)")
+endif
+
 CLI_FEATURES ?= default
 
 COCO_AS_INTEGRATION_TYPE ?= builtin

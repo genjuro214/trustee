@@ -34,6 +34,8 @@ jobs:
     steps:
     - name: Take a pre-action for self-hosted runner
       run: |
+        # NOTE: Use file checking instead triggering a step based on a runner type
+        # to avoid updating the step for each new self-hosted runner.
         if [ -f "${HOME}/script/pre_action.sh" ]; then
           "${HOME}/script/pre_action.sh" cc-trustee
         fi
@@ -62,6 +64,7 @@ jobs:
     - name: Take a post-action for self-hosted runner
       if: always()
       run: |
+        # Please check out the note in the pre-action step for the reason of using file checking
         if [ -f "${HOME}/script/post_action.sh" ]; then
           "${HOME}/script/post_action.sh" cc-trustee
         fi
