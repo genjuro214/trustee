@@ -2,16 +2,17 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-FROM rust:latest as builder
-ARG ARCH=x86_64
+FROM --platform=${BUILDPLATFORM} rust:latest as builder
+# predefined variables supported by BuildKit
+ARG TARGETARCH
+ARG BUILDARCH
 
 WORKDIR /usr/src/attestation-service
 COPY . .
 
 # Install golang
-RUN if [ "${ARCH}" = "x86_64" ]; then GOARCH="amd64"; else GOARCH="${ARCH}"; fi && \
-    wget https://go.dev/dl/go1.20.1.linux-${GOARCH}.tar.gz && \
-    tar -C /usr/local -xzf go1.20.1.linux-${GOARCH}.tar.gz
+RUN wget https://go.dev/dl/go1.20.1.linux-${BUILDARCH}.tar.gz && \
+    tar -C /usr/local -xzf go1.20.1.linux-${BUILDARCH}.tar.gz
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 
@@ -19,14 +20,26 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 RUN apt-get update && apt-get install -y protobuf-compiler clang libtss2-dev
 
 # Install TDX Build Dependencies
-RUN if [ "${ARCH}" = "x86_64" ]; then curl -L https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | tee intel-sgx-deb.key | apt-key add - && \
+RUN if [ "${TARGETARCH}" = "amd64" ]; then curl -L https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | tee intel-sgx-deb.key | apt-key add - && \
     echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | tee /etc/apt/sources.list.d/intel-sgx.list && \
     apt-get update && apt-get install -y libtdx-attest-dev libsgx-dcap-quote-verify-dev; fi
 
-# Build and Install RESTful attestation-service
-RUN cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked
+# to support cross-compiling
+RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-install-recommends \
+    gcc-"${TARGETARCH}"-linux-gnu \
+    libc6-dev-"${TARGETARCH}"-cross && \
+    rustup target add "${TARGETARCH}-unknown-linux-gnu" && \
+    go env -w CC="${TARGETARCH}"-linux-gnu-gcc; fi
 
-FROM ubuntu:22.04
+# Build and Install RESTful attestation-service
+RUN if [ "${BUILDARCH}" != "${TARGETARCH}" ]; then \
+        RUSTFLAGS=" -C linker=${TARGETARCH}-linux-gnu-gcc" CGO_ENABLED=1 GOARCH="${TARGETARCH}" \
+	cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked --target "${TARGETARCH}-unknown-linux-gnu"; \
+    else \
+	cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked; \
+    fi
+
+FROM --platform=${TARGETPLATFORM} ubuntu:22.04
 ARG ARCH=x86_64
 
 LABEL org.opencontainers.image.source="https://github.com/confidential-containers/attestation-service"
