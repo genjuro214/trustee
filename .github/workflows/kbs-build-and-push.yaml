@@ -12,6 +12,9 @@ jobs:
       matrix:
         instance:
           - ubuntu-latest
+        platform:
+          - linux/amd64
+          - linux/s390x
         tag:
           - kbs
           - kbs-grpc-as
@@ -55,7 +58,7 @@ jobs:
         docker buildx build -f ${{ matrix.docker_file }} --load \
           -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:${commit_sha}-${arch} \
           -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:latest-${arch} \
-          --platform linux/s390x --build-arg HTTPS_CRYPTO=${https_crypto} .
+          --platform ${{ matrix.platform }} --build-arg HTTPS_CRYPTO=${https_crypto} .
 
     - name: Take a post-action for self-hosted runner
       if: always()
