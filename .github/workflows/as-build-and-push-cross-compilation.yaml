@@ -30,7 +30,7 @@ jobs:
             tag: rvps
             name: RVPS
     runs-on: ${{ matrix.instance }}
-
+    steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
