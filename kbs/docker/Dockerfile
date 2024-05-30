@@ -38,7 +38,7 @@ RUN wget https://go.dev/dl/go1.20.1.linux-${BUILDARCH}.tar.gz && \
     tar -C /usr/local -xzf go1.20.1.linux-${BUILDARCH}.tar.gz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# to support cross-compiling
+# To support cross-compilation
 RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-install-recommends \
     gcc-"${TARGETARCH}"-linux-gnu \
     libc6-dev-"${TARGETARCH}"-cross && \
@@ -49,11 +49,14 @@ RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-inst
 WORKDIR /usr/src/kbs
 COPY . .
 
-RUN if [ "${BUILDARCH}" != "${TARGETARCH}" ]; then \
+RUN https_crypto_feature="${HTTPS_CRYPTO}" && \
+    if [ "${TARGETARCH}" = "s390x" ]; then https_crypto_feature="openssl"; fi && \
+    if [ "${BUILDARCH}" != "${TARGETARCH}" ]; then \
         RUSTFLAGS=" -C linker=${TARGETARCH}-linux-gnu-gcc" CGO_ENABLED=1 GOARCH="${TARGETARCH}" \
-        cargo install --locked --path kbs/src/kbs --no-default-features --features coco-as-builtin,resource,opa,${HTTPS_CRYPTO} --target "${TARGETARCH}-unknown-linux-gnu"; \
+        cargo install --locked --path kbs/src/kbs --no-default-features --features coco-as-builtin,resource,opa,${https_crypto_feature} \
+        --target "${TARGETARCH}-unknown-linux-gnu"; \
     else \
-        cargo install --locked --path kbs/src/kbs --no-default-features --features coco-as-builtin,resource,opa,${HTTPS_CRYPTO}; \
+        cargo install --locked --path kbs/src/kbs --no-default-features --features coco-as-builtin,resource,opa,${https_crypto_feature}; \
     fi
 
 FROM --platform=${TARGETPLATFORM} ubuntu:22.04

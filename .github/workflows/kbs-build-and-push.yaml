@@ -1,6 +1,9 @@
 name: Build and Push kbs Image
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -12,9 +15,8 @@ jobs:
       matrix:
         instance:
           - ubuntu-latest
-        platform:
-          - linux/amd64
-          - linux/s390x
+        platforms:
+          - linux/amd64,linux/s390x
         tag:
           - kbs
           - kbs-grpc-as
@@ -30,14 +32,6 @@ jobs:
     runs-on: ${{ matrix.instance }}
 
     steps:
-    - name: Take a pre-action for self-hosted runner
-      run: |
-        # NOTE: Use file checking instead triggering a step based on a runner type
-        # to avoid updating the step for each new self-hosted runner.
-        if [ -f "${HOME}/script/pre_action.sh" ]; then
-          "${HOME}/script/pre_action.sh" cc-trustee
-        fi
-
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -54,18 +48,9 @@ jobs:
     - name: Build Container Image KBS (${{ matrix.name }})
       run: |
         commit_sha=${{ github.sha }}
-        https_crypto=openssl
-        docker buildx build -f ${{ matrix.docker_file }} --load \
-          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:${commit_sha}-${arch} \
-          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:latest-${arch} \
-          --platform ${{ matrix.platform }} --build-arg HTTPS_CRYPTO=${https_crypto} .
-
-    - name: Take a post-action for self-hosted runner
-      if: always()
-      run: |
-        # Please check out the note in the pre-action step for the reason of using file checking
-        if [ -f "${HOME}/script/post_action.sh" ]; then
-          "${HOME}/script/post_action.sh" cc-trustee
-        fi
-
-
+        https_crypto=${{ matrix.https_crypto }}
+        docker buildx build -f ${{ matrix.docker_file }} --push \
+          --platform ${{ matrix.platforms }} \
+          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:${commit_sha} \
+          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:latest \
+          --build-arg HTTPS_CRYPTO=${https_crypto} .

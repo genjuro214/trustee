@@ -24,7 +24,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then curl -L https://download.01.org/intel
     echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | tee /etc/apt/sources.list.d/intel-sgx.list && \
     apt-get update && apt-get install -y libtdx-attest-dev libsgx-dcap-quote-verify-dev; fi
 
-# to support cross-compiling
+# To support cross-compilation
 RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-install-recommends \
     gcc-"${TARGETARCH}"-linux-gnu \
     libc6-dev-"${TARGETARCH}"-cross && \
@@ -34,13 +34,16 @@ RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-inst
 # Build and Install RESTful attestation-service
 RUN if [ "${BUILDARCH}" != "${TARGETARCH}" ]; then \
         RUSTFLAGS=" -C linker=${TARGETARCH}-linux-gnu-gcc" CGO_ENABLED=1 GOARCH="${TARGETARCH}" \
-	cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked --target "${TARGETARCH}-unknown-linux-gnu"; \
+        cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked \
+        --target "${TARGETARCH}-unknown-linux-gnu"; \
     else \
-	cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked; \
+	    cargo install --path attestation-service/attestation-service --bin restful-as --features restful-bin --locked; \
     fi
 
 FROM --platform=${TARGETPLATFORM} ubuntu:22.04
 ARG ARCH=x86_64
+ARG TARGETARCH
+ARG BUILDARCH
 
 LABEL org.opencontainers.image.source="https://github.com/confidential-containers/attestation-service"
 
@@ -53,6 +56,9 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then curl -L https://download.01.org/intel
     apt-get update && \
     apt-get install -y libsgx-dcap-default-qpl libsgx-dcap-quote-verify && \
     rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*; fi
+
+# Install TPM Dependencies for cross-complication
+RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-install-recommends libtss2-dev; fi
 
 # Copy TPM Runtime Dependencies
 COPY --from=builder /usr/lib/${ARCH}-linux-gnu/libtss* /usr/lib/${ARCH}-linux-gnu

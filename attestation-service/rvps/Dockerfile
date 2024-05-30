@@ -13,7 +13,7 @@ COPY . .
 
 RUN apt-get update && apt-get install protobuf-compiler -y
 
-# to support cross-compiling
+# To support cross-compilation
 RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-install-recommends \
     gcc-"${TARGETARCH}"-linux-gnu \
     libc6-dev-"${TARGETARCH}"-cross && \
@@ -21,9 +21,10 @@ RUN if [  "${BUILDARCH}" != "${TARGETARCH}" ]; then apt-get install -y --no-inst
 
 RUN if [ "${BUILDARCH}" != "${TARGETARCH}" ]; then \
         RUSTFLAGS=" -C linker=${TARGETARCH}-linux-gnu-gcc" \
-	cargo install --bin rvps --path attestation-service/rvps --target "${TARGETARCH}-unknown-linux-gnu"; \
+        cargo install --bin rvps --path attestation-service/rvps \
+        --target "${TARGETARCH}-unknown-linux-gnu"; \
     else \
-	cargo install --bin rvps --path attestation-service/rvps; \
+        cargo install --bin rvps --path attestation-service/rvps; \
     fi
 
 FROM --platform=${TARGETPLATFORM} debian
