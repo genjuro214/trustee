@@ -1,0 +1,57 @@
+name: Build and Push CoCoAS / RVPS Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_push:
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        instance:
+          - ubuntu-latest
+        platforms:
+          - linux/amd64,linux/s390x
+        tag:
+          - coco-as-grpc
+          - coco-as-restful
+          - rvps
+        include:
+          - docker_file: attestation-service/Dockerfile.as-grpc
+            tag: coco-as-grpc
+            name: gRPC CoCo-AS
+          - docker_file: attestation-service/Dockerfile.as-restful
+            tag: coco-as-restful
+            name: RESTful CoCo-AS
+          - docker_file: attestation-service/rvps/Dockerfile
+            tag: rvps
+            name: RVPS
+    runs-on: ${{ matrix.instance }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GHCR Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: quay.io
+        username: ${{ vars.QUAY_USER }}
+        password: ${{ secrets.QUAY_PASSWORD }}
+
+    - name: Build ${{ matrix.name }} Container Image
+      run: |
+        commit_sha=${{ github.sha }}
+        arch=$(uname -m)
+        docker buildx build -f ${{ matrix.docker_file }} --push --build-arg ARCH=${arch} \
+          --platform ${{ matrix.platforms }} \
+          -t quay.io/cdlleili/${{ matrix.tag }}:${commit_sha} \
+          -t quay.io/cdlleili/${{ matrix.tag }}:latest .
