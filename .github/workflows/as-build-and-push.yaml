@@ -43,9 +43,9 @@ jobs:
     - name: Login to GHCR Container Registry
       uses: docker/login-action@v3
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: quay.io
+        username: ${{ vars.QUAY_USER }}
+        password: ${{ secrets.QUAY_PASSWORD }}
 
     - name: Build ${{ matrix.name }} Container Image
       run: |
@@ -53,5 +53,5 @@ jobs:
         arch=$(uname -m)
         docker buildx build -f ${{ matrix.docker_file }} --push --build-arg ARCH=${arch} \
           --platform ${{ matrix.platforms }} \
-          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:${commit_sha} \
-          -t ghcr.io/confidential-containers/staged-images/${{ matrix.tag }}:latest .
+          -t quay.io/cdlleili/${{ matrix.tag }}:${commit_sha} \
+          -t quay.io/cdlleili/${{ matrix.tag }}:latest .
